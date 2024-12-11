@@ -1,5 +1,5 @@
 const P1_START: u32 = 7;
-const P2_START: u32 = 2;
+const P2_START: u32 = 4;
 
 const SPACES: u32 = 10;
 const WIN_AMT: u32 = 1000;

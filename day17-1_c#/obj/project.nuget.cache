@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "dgSpecHash": "+7oFayxSKWc=",
+  "success": true,
+  "projectFilePath": "J:\\coding\\AOC2021\\day17-1_c#\\day17-1_c#.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\robhorvath\\.nuget\\packages\\microsoft.dotnet.ilcompiler\\9.0.0\\microsoft.dotnet.ilcompiler.9.0.0.nupkg.sha512",
+    "C:\\Users\\robhorvath\\.nuget\\packages\\microsoft.net.illink.tasks\\9.0.0\\microsoft.net.illink.tasks.9.0.0.nupkg.sha512",
+    "C:\\Users\\robhorvath\\.nuget\\packages\\runtime.win-x64.microsoft.dotnet.ilcompiler\\9.0.0\\runtime.win-x64.microsoft.dotnet.ilcompiler.9.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}

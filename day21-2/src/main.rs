@@ -1,5 +1,5 @@
 const P1_START: u64 = 7;
-const P2_START: u64 = 2;
+const P2_START: u64 = 4;
 
 const SPACES: u64 = 10;
 const WIN_AMT: u64 = 21;

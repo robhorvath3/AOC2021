@@ -128,11 +128,11 @@ fn y_pos(vi: i64, i: i64) -> i64 {
 }
 
 fn main() {
-    let x0 = 156;
-    let x1 = 202;
+    let x0 = 179;
+    let x1 = 201;
     
-    let y0: i64 = -110;
-    let y1: i64 = -69;
+    let y0: i64 = -109;
+    let y1: i64 = -63;
 
     let v_x: Vec<ValidPair> = find_v_x_between(x0, x1);
     //println!("Valid x velocities2 for landing between x0 {} and x1 {}: {:?}", x0, x1, v_x);
