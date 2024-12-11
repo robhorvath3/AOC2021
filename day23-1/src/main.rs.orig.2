@@ -1,0 +1,292 @@
+use std::cmp;
+
+const AMBER: usize = 0;
+const BRONZE: usize = 1;
+const COPPER: usize = 2;
+const DESERT: usize = 3;
+
+const ENERGY: [u64; 4] = [1, 10, 100, 1000];
+
+const SAFE_SPOTS: [usize; 7] = [0, 1, 3, 5, 7, 9, 10];
+const ROOM_SPOTS: [usize; 4] = [2, 4, 6, 8];
+
+const WAIT: [usize; 8] = [0, 0, 0, 0, 0, 1, 2, 3];
+
+const SPOTS: usize = 11;
+
+const STATE_START_FIRST: usize = 0;
+const STATE_START_LAST: usize = 1;
+const STATE_HALLWAY: usize = 2;
+const STATE_DONE: usize = 3;
+
+/*
+#############
+#...........#
+###B#B#D#D###
+  #C#A#A#C#
+  #########
+*/
+
+#[derive(Clone)]
+struct Amphipod {
+    idx: usize,
+    typ: usize,
+    spot: usize,
+    state: usize,
+}
+
+#[inline(always)]
+fn convert_spot_to_room(spot: usize) -> usize {
+    (spot - 2) / 2
+}
+
+#[inline(always)]
+fn convert_amphipod_idx_to_room(idx: usize) -> usize {
+    idx / 2
+}
+
+#[inline(always)]
+fn is_room_clear(amphipods: &Vec<Amphipod>, room: usize) -> bool {
+    for i in 0..amphipods.len() {
+        if (amphipods[i].state == STATE_START_FIRST || amphipods[i].state == STATE_START_LAST) &&
+            amphipods[i].spot == room && amphipods[i].typ != room {
+            return false
+        }
+    }
+    true
+}
+
+#[inline(always)]
+fn first_to_room(amphipods: &Vec<Amphipod>, room: usize) -> bool {
+    for i in 0..amphipods.len() {
+        if amphipods[i].typ == room && amphipods[i].state == STATE_DONE {
+            return false
+        }
+    }
+    true
+}
+
+#[derive(Clone)]
+struct Game {
+    min_score: u64,
+    board: [usize; 11],
+    amphipods: Vec<Amphipod>,
+}
+
+#[derive(Debug, PartialEq)]
+enum MoveResult {
+    SpotOccupied,
+    PathBlocked,
+    DoorBlocked,
+    RoomBlocked,
+    MovedToHallway,
+    MovedToRoom,
+    InRoomDone,  
+}
+
+fn main() {
+    let mut min_energy: u64 = u64::MAX;
+    let mut amphipods_src: Vec<Amphipod> = Vec::with_capacity(8);
+    reset_board(&mut amphipods_src);
+
+    for i in 0..4 {
+        
+        let mut game = Game { min_score: u64::MAX, board: [usize::MAX; 11], amphipods: amphipods_src.clone() };
+
+        do_turn(&game.amphipods, &game.board, i, 0, &mut game.min_score, 0);
+
+        if game.min_score < min_energy {
+            min_energy = game.min_score;
+        }
+    }
+    
+    println!("The min energy required is {}", min_energy);
+
+    fn is_path_clear(game_board: &[usize; 11], start_spot: usize, end_spot: usize) -> bool {
+        for i in cmp::min(start_spot+1,end_spot)..cmp::max(start_spot,end_spot+1) {
+            if game_board[i] != usize::MAX {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn do_turn(amphipods: &Vec<Amphipod>, game_board: &[usize; 11], pod_idx: usize, score: u64, low_score: &mut u64, depth: u8) -> MoveResult {
+
+        println!("Doing turn for {}, score: {}, low score: {}, depth: {}", pod_idx, score, low_score, depth);
+
+        if amphipods[pod_idx].state == STATE_DONE {
+            return MoveResult::InRoomDone;
+        }
+
+        let mut result: (MoveResult, usize, u64) = (MoveResult::DoorBlocked, 0, 0);
+
+        if amphipods[pod_idx].state != STATE_HALLWAY {
+            let mut current_subturn = 1;
+            for i in SAFE_SPOTS {
+                
+                println!("Subturn #{} for {} -> {}, depth: {}", current_subturn, pod_idx, i, depth);
+                current_subturn += 1;
+
+                let mut lamphipods = amphipods.clone();
+                let mut lboard = game_board.clone();
+
+                result = move_pod(&mut lamphipods, &mut lboard, pod_idx, i);
+
+                if result.0 != MoveResult::MovedToHallway &&
+                result.0 != MoveResult::MovedToRoom {
+                    println!("Turn not continued: {:?} @ depth: {}", result.0, depth);
+                    continue;
+                }
+                
+                let mut in_place: usize = 0;
+
+                for j in 0..8 {
+                    if lamphipods[j].state == STATE_DONE {
+                        in_place += 1;
+                    }
+                }
+
+                if in_place == 8 {
+                    if score + result.2 < *low_score {
+                        *low_score = score + result.2;
+                    }
+                    continue;
+                }
+
+                for j in 0..8 {
+                    if j == i {
+                        continue;
+                    }
+                    if lamphipods[j].state != STATE_DONE {
+                        let next_turn = do_turn(&lamphipods, &lboard, j, score + result.2, low_score, depth + 1);
+                    }
+                }
+            }
+        }
+        else {
+            println!("Subturn - Room Try for {}, depth: {}", pod_idx, depth);
+
+            let mut lamphipods = amphipods.clone();
+            let mut lboard = game_board.clone();
+
+            result = move_pod(&mut lamphipods, &mut lboard, pod_idx, 0);
+
+            if result.0 != MoveResult::MovedToHallway &&
+               result.0 != MoveResult::MovedToRoom {
+                println!("Turn not continued: {:?}", result.0);
+                return result.0;
+            }
+            
+            let mut in_place: usize = 0;
+
+            for j in 0..8 {
+                if lamphipods[j].state == STATE_DONE {
+                    in_place += 1;
+                }
+            }
+
+            if in_place == 8 {
+                if score + result.2 < *low_score {
+                    *low_score = score + result.2;
+                }
+                return result.0;
+            }
+
+            for j in 0..8 {
+                if lamphipods[j].state != STATE_DONE {
+                    let next_turn = do_turn(&lamphipods, &lboard, j, score + result.2, low_score, depth + 1);
+                }
+            }
+        }
+
+        result.0
+    }
+
+    fn move_pod(amphipods: &mut Vec<Amphipod>, game_board: &mut [usize; 11], pod_idx: usize, dest_spot: usize) -> (MoveResult, usize, u64) {
+
+        println!("Moving {}, state {}, spot {}, dest {}", pod_idx, amphipods[pod_idx].state, amphipods[pod_idx].spot, dest_spot);
+
+        if game_board[dest_spot] != usize::MAX {
+            return (MoveResult::SpotOccupied, 0, 0);
+        }
+        
+        let mut dist_moved: usize = 0;
+        let mut old_spot: usize = usize::MAX;
+        let mut new_spot: usize = usize::MAX;
+
+        match amphipods[pod_idx].state {
+            STATE_START_FIRST => {
+                old_spot = ROOM_SPOTS[convert_amphipod_idx_to_room(pod_idx)];
+                new_spot = dest_spot;
+                dist_moved += 1;                
+            },
+            STATE_START_LAST => {
+                old_spot = ROOM_SPOTS[convert_amphipod_idx_to_room(pod_idx)];
+                new_spot = dest_spot;
+                if amphipods[WAIT[pod_idx]].state == STATE_START_FIRST {
+                    return (MoveResult::DoorBlocked, 0, 0);
+                }
+                dist_moved += 2;
+            },
+            STATE_HALLWAY => {
+                old_spot = amphipods[pod_idx].spot;
+                new_spot = ROOM_SPOTS[amphipods[pod_idx].typ];
+
+                if !is_room_clear(amphipods, amphipods[pod_idx].typ) {
+                    return (MoveResult::RoomBlocked, 0, 0);
+                }
+
+                if first_to_room(amphipods, amphipods[pod_idx].typ) {
+                    dist_moved += 1;
+                }
+                else {
+                    dist_moved += 2;
+                }
+            },
+            STATE_DONE => {
+                return (MoveResult::InRoomDone, 0, 0);
+            },
+            _ => {},
+        }
+
+        if !is_path_clear(game_board, old_spot, new_spot) {
+            return (MoveResult::PathBlocked, 0, 0);
+        }
+        
+        dist_moved += cmp::max(old_spot, new_spot) - cmp::min(old_spot, new_spot) + 1;
+
+        let mut mr = MoveResult::MovedToHallway; 
+
+        match amphipods[pod_idx].state {
+            STATE_START_FIRST | STATE_START_LAST => {
+                amphipods[pod_idx].spot = new_spot;
+                amphipods[pod_idx].state = STATE_HALLWAY;
+                game_board[new_spot] = pod_idx;
+            },
+            STATE_HALLWAY => {
+                amphipods[pod_idx].spot = usize::MAX;
+                amphipods[pod_idx].state = STATE_DONE;
+                game_board[old_spot] = usize::MAX;
+                mr = MoveResult::MovedToRoom;
+            },
+            _ => {},
+        }
+        
+        println!("Moved {}, state {}, spot {}", pod_idx, amphipods[pod_idx].state, amphipods[pod_idx].spot);
+
+        (mr, dist_moved, dist_moved as u64 * ENERGY[amphipods[pod_idx].typ])
+    }
+
+    fn reset_board(amphipods: &mut Vec<Amphipod>) {
+        amphipods.clear();
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: BRONZE, spot: 0, state: STATE_START_FIRST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: BRONZE, spot: 1, state: STATE_START_FIRST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: DESERT, spot: 2, state: STATE_START_FIRST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: DESERT, spot: 3, state: STATE_START_FIRST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: COPPER, spot: 0, state: STATE_START_LAST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: AMBER, spot: 1, state: STATE_START_LAST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: AMBER, spot: 2, state: STATE_START_LAST });
+        amphipods.push(Amphipod { idx: amphipods.len(), typ: COPPER, spot: 3, state: STATE_START_LAST });
+    }
+}
